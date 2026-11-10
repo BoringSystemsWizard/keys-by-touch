@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Клавиши вслепую</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;700&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout: слева оглавление, в центре лист с заданием, под ним клавиатура MacBook, где цвет нижней кромки клавиши означает палец. */
+:root{
+  --bg:#e9ecf2; --surface:#f8f9fb; --fg:#1a2130; --muted:#586479; --line:#cfd5e0;
+  --accent:#b86a00; --cursor:#ffb224; --ok:#14866a; --bad:#c93a55;
+  --term-bg:#151b27; --term-bar:#222b3c; --term-fg:#dde4f0; --term-dim:#8391aa;
+  --key-bg:#ffffff; --key-edge:#aab3c3;
+  --f-pinky:#c44f8f; --f-ring:#3d7fd6; --f-mid:#17977a; --f-idx:#8a5fd8; --f-thumb:#8a94a6;
+  --f-display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e121a; --surface:#161c28; --fg:#e4e9f2; --muted:#94a1b8; --line:#2a3447;
+  --accent:#ffb224; --cursor:#ffb224; --ok:#3ecfa8; --bad:#ff6b85;
+  --term-bg:#080b11; --term-bar:#161d2b; --term-fg:#dde4f0; --term-dim:#7a88a2;
+  --key-bg:#252f42; --key-edge:#05070b;
+  --f-pinky:#e77ab8; --f-ring:#6aa5f5; --f-mid:#3ecfa8; --f-idx:#b08cf5; --f-thumb:#6d7a92; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0e121a; --surface:#161c28; --fg:#e4e9f2; --muted:#94a1b8; --line:#2a3447;
+  --accent:#ffb224; --cursor:#ffb224; --ok:#3ecfa8; --bad:#ff6b85;
+  --term-bg:#080b11; --term-bar:#161d2b; --term-fg:#dde4f0; --term-dim:#7a88a2;
+  --key-bg:#252f42; --key-edge:#05070b;
+  --f-pinky:#e77ab8; --f-ring:#6aa5f5; --f-mid:#3ecfa8; --f-idx:#b08cf5; --f-thumb:#6d7a92; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding-block:20px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:20px}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px}
+.brand{font-family:var(--f-display);font-weight:700;font-size:20px;letter-spacing:-.01em;margin:0}
+.brand span{color:var(--accent)}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs button{background:none;border:0;padding:6px 12px;border-radius:6px;color:var(--muted);font-weight:500}
+.tabs button[aria-selected="true"]{background:var(--fg);color:var(--bg)}
+.meta{margin-left:auto;display:flex;gap:8px;align-items:center}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{background:none;border:0;padding:4px 10px;font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);font-weight:700}
+.focus-note{background:var(--cursor);color:#1a1200;border:0;border-radius:6px;padding:10px 14px;font-weight:600;text-align:left;width:100%}
+
+/* клавиши-подписи */
+.combo{display:inline-flex;align-items:center;gap:3px;white-space:nowrap;vertical-align:middle}
+kbd{font-family:var(--f-mono);font-size:13px;font-weight:700;min-width:26px;height:26px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;
+  background:var(--key-bg);color:var(--fg);border:1px solid var(--key-edge);border-bottom-width:3px;border-radius:5px}
+
+/* каркас */
+.cols{display:grid;grid-template-columns:230px minmax(0,1fr);gap:28px;align-items:start}
+.nav{display:flex;flex-direction:column;gap:14px;font-size:14px}
+.nav h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 4px;font-weight:600}
+.nav ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+.nav button{width:100%;display:flex;justify-content:space-between;gap:8px;text-align:left;background:none;border:0;padding:4px 8px;border-radius:5px;color:var(--fg)}
+.nav button:hover{background:var(--surface)}
+.nav button[aria-current="true"]{background:var(--surface);box-shadow:inset 3px 0 0 var(--accent);font-weight:600}
+.nav .st{font-size:11px;color:var(--accent);letter-spacing:1px;flex:none;font-variant-numeric:tabular-nums}
+.nav .st.none{color:var(--muted)}
+.nav .lk{font-family:var(--f-mono);letter-spacing:.12em}
+
+.stage{display:flex;flex-direction:column;gap:16px;min-width:0}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0}
+.stage h2{font-family:var(--f-display);font-weight:500;font-size:24px;line-height:1.2;margin:2px 0 6px;text-wrap:balance}
+.task{margin:0;max-width:65ch}
+.msg{min-height:1.5em;font-size:14px;color:var(--bad);margin:0}
+
+/* лист с текстом */
+.sheet{background:var(--term-bg);color:var(--term-dim);border-radius:10px;padding:22px 24px;font-family:var(--f-mono);font-size:20px;line-height:1.75;
+  white-space:pre-wrap;overflow-wrap:anywhere;min-height:150px;box-shadow:0 18px 40px -24px rgba(0,0,0,.6)}
+.sheet .d{color:var(--term-fg)}
+.sheet .e{box-shadow:0 3px 0 var(--bad)}
+.sheet .c{background:var(--cursor);color:#1a1200;border-radius:2px}
+.sheet .c.x{background:var(--bad);color:#fff}
+
+.hud{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;font-size:14px;color:var(--muted)}
+.hud strong{color:var(--fg);font-variant-numeric:tabular-nums}
+.hud .sp{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 12px;font-size:14px}
+.btn.pri{background:var(--fg);color:var(--bg);border-color:var(--fg);font-weight:600}
+
+.win{border-top:2px solid var(--ok);padding-top:14px;display:flex;flex-direction:column;gap:10px}
+.win .stars{font-size:26px;color:var(--accent);letter-spacing:4px;line-height:1}
+.win .stars s{color:var(--line);text-decoration:none}
+.win p{margin:0}
+.nums{display:flex;flex-wrap:wrap;gap:8px 32px}
+.nums div{display:flex;flex-direction:column}
+.nums b{font-family:var(--f-display);font-weight:500;font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums}
+.nums span{font-size:12px;color:var(--muted)}
+
+/* клавиатура */
+.kb{display:flex;flex-direction:column;gap:4px;max-width:740px;user-select:none;-webkit-user-select:none}
+.kr{display:flex;gap:4px}
+.k{flex:var(--w,1) 1 0;min-width:0;height:38px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:var(--f-mono);font-size:12px;line-height:1.05;color:var(--fg);
+  background:var(--key-bg);border:1px solid var(--key-edge);border-bottom:3px solid var(--fc,var(--key-edge));border-radius:5px}
+.k small{font-size:9px;color:var(--muted)}
+.k.gap{visibility:hidden}
+.k.fp{--fc:var(--f-pinky)} .k.fr{--fc:var(--f-ring)} .k.fm{--fc:var(--f-mid)} .k.fi{--fc:var(--f-idx)} .k.ft{--fc:var(--f-thumb)}
+.k.t{background:var(--cursor);color:#1a1200} .k.t small{color:#1a1200}
+.k.on{background:var(--fg);color:var(--bg)} .k.on small{color:var(--bg)}
+.k.bad{background:var(--bad);color:#fff} .k.bad small{color:#fff}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--muted);list-style:none;margin:0;padding:0}
+.legend li{display:flex;align-items:center;gap:6px}
+.legend i{width:14px;height:4px;border-radius:2px;background:var(--fc)}
+
+/* сочетания */
+.q{background:var(--term-bg);color:var(--term-fg);border-radius:10px;padding:26px 24px;display:flex;flex-direction:column;gap:12px;min-height:200px;
+  box-shadow:0 18px 40px -24px rgba(0,0,0,.6)}
+.q .n{font-family:var(--f-mono);font-size:12px;color:var(--term-dim)}
+.q .ask{font-family:var(--f-display);font-weight:500;font-size:24px;line-height:1.25;text-wrap:balance}
+.q .fb{font-size:15px;min-height:30px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.q .fb.bad{color:var(--bad)} .q .fb.new{color:var(--cursor)}
+.q .seqn{font-size:13px;color:var(--term-dim);margin:0}
+.q kbd{background:var(--term-bar);color:var(--term-fg);border-color:#000}
+.sum{display:flex;flex-direction:column;gap:6px;list-style:none;margin:0;padding:0;font-size:14px}
+.sum li{display:grid;grid-template-columns:10em minmax(0,1fr);gap:8px;align-items:center}
+
+/* справочник */
+.ref{display:flex;flex-direction:column;gap:22px;max-width:860px}
+.ref input{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 12px;width:100%;max-width:360px}
+.ref h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;font-weight:600}
+.ref table{border-collapse:collapse;width:100%;font-size:15px}
+.ref td{padding:6px 12px 6px 0;border-top:1px solid var(--line);vertical-align:middle}
+.ref td:first-child{width:12em}
+.ref td.box{color:var(--accent);font-size:11px;letter-spacing:2px;text-align:right;white-space:nowrap;padding-right:0}
+.note{font-size:14px;color:var(--muted);max-width:65ch;margin:0;padding-left:1.2em}
+.note li{margin-bottom:6px}
+
+@media (max-width:760px){
+  .cols{grid-template-columns:minmax(0,1fr)}
+  .nav{flex-direction:row;overflow-x:auto;gap:20px;padding-bottom:6px}
+  .nav section{flex:none;min-width:170px}
+  .stage h2,.q .ask{font-size:20px}
+  .sheet{font-size:16px;padding:16px}
+  .kb,.kr{gap:2px} .k{height:30px;font-size:10px;border-radius:3px} .k small{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <nav class="tabs" role="tablist">
+      <button id="tab-type" role="tab" data-view="type"></button>
+      <button id="tab-sc" role="tab" data-view="sc"></button>
+      <button id="tab-ref" role="tab" data-view="ref"></button>
+    </nav>
+    <div class="meta">
+      <button class="btn" id="b-sound"></button>
+      <div class="seg" id="seg-lang" aria-label="Language">
+        <button id="lang-ru" data-lang="ru">RU</button>
+        <button id="lang-en" data-lang="en">EN</button>
+      </div>
+    </div>
+  </header>
+  <button class="focus-note" id="focus-note" hidden></button>
+  <main id="view"></main>
+</div>
+
+<script id="data">
+const SHORTCUTS=/*@SHORTCUTS*/[{"keys":["Cmd","X"],"cat":"basics","scope":"app","en":"Cut the selected item and copy it to the Clipboard","ru":"Вырезать выделенный объект и скопировать его в буфер обмена"},{"keys":["Cmd","C"],"cat":"basics","scope":"app","en":"Copy the selected item to the Clipboard","ru":"Скопировать выделенный объект в буфер обмена"},{"keys":["Cmd","V"],"cat":"basics","scope":"app","en":"Paste the contents of the Clipboard","ru":"Вставить содержимое буфера обмена"},{"keys":["Cmd","Z"],"cat":"basics","scope":"app","en":"Undo the previous command","ru":"Отменить предыдущую команду"},{"keys":["Cmd","Shift","Z"],"cat":"basics","scope":"app","en":"Redo, reversing the undo command","ru":"Повторить отменённую команду"},{"keys":["Cmd","A"],"cat":"basics","scope":"app","en":"Select all items","ru":"Выбрать все объекты"},{"keys":["Cmd","F"],"cat":"basics","scope":"app","en":"Find items in a document or open a Find window","ru":"Найти объекты в документе или открыть окно «Поиск»"},{"keys":["Cmd","G"],"cat":"basics","scope":"app","en":"Find Again: find the next occurrence of the item previously found","ru":"Повторный поиск: найти следующее повторение найденного объекта"},{"keys":["Cmd","Shift","G"],"cat":"basics","scope":"app","en":"Find the previous occurrence of the item previously found","ru":"Вернуться к предыдущему повторению найденного объекта"},{"keys":["Cmd","H"],"cat":"apps","scope":"system","en":"Hide the windows of the front app","ru":"Скрыть окна активного приложения"},{"keys":["Cmd","Opt","H"],"cat":"apps","scope":"system","en":"View the front app but hide all other apps","ru":"Оставить окно активного приложения, но скрыть все остальные"},{"keys":["Cmd","M"],"cat":"apps","scope":"system","en":"Minimize the front window to the Dock","ru":"Свернуть активное окно в Dock"},{"keys":["Cmd","Opt","M"],"cat":"apps","scope":"system","en":"Minimize all windows of the front app","ru":"Свернуть все окна активного приложения"},{"keys":["Cmd","O"],"cat":"basics","scope":"app","en":"Open the selected item, or open a dialog to select a file to open","ru":"Открыть выделенный объект или окно выбора файла для открытия"},{"keys":["Cmd","P"],"cat":"basics","scope":"app","en":"Open a print dialog to print the current document","ru":"Открыть диалоговое окно печати текущего документа"},{"keys":["Cmd","Q"],"cat":"apps","scope":"system","en":"Quit the current app","ru":"Выйти из текущего приложения"},{"keys":["Cmd","S"],"cat":"basics","scope":"app","en":"Save the current document","ru":"Сохранить текущий документ"},{"keys":["Cmd","T"],"cat":"apps","scope":"app","en":"Open a new tab","ru":"Открыть новую вкладку"},{"keys":["Cmd","W"],"cat":"apps","scope":"system","en":"Close the front window","ru":"Закрыть активное окно"},{"keys":["Cmd","Opt","W"],"cat":"apps","scope":"system","en":"Close all windows of the app","ru":"Закрыть все окна приложения"},{"keys":["Cmd","Opt","Esc"],"cat":"apps","scope":"system","en":"Force quit an app","ru":"Принудительно завершить работу приложения"},{"keys":["Cmd","Space"],"cat":"apps","scope":"system","en":"Show or hide the Spotlight search field","ru":"Показать или скрыть поле поиска Spotlight"},{"keys":["Cmd","Opt","Space"],"cat":"apps","scope":"system","en":"Perform a Spotlight search from a Finder window","ru":"Выполнить поиск Spotlight в окне Finder"},{"keys":["Cmd","Ctrl","Space"],"cat":"apps","scope":"system","en":"Show the Character Viewer to choose emoji and other symbols","ru":"Показать панель «Символы» для выбора эмодзи и других символов"},{"keys":["Cmd","Ctrl","F"],"cat":"apps","scope":"app","en":"Use or stop using the app in full screen, if supported","ru":"Перейти в полноэкранный режим (если поддерживается) или выйти из него"},{"keys":["Space"],"cat":"finder","scope":"finder","en":"Use Quick Look to preview the selected item","ru":"Использовать быстрый просмотр для выделенного объекта"},{"keys":["Cmd","Tab"],"cat":"apps","scope":"system","en":"Switch to the next most recently used app among your open apps","ru":"Переключиться на следующее недавно использованное открытое приложение"},{"keys":["Cmd","`"],"cat":"apps","scope":"system","en":"Switch between windows of the current app (activate the next window)","ru":"Переключиться между окнами приложения (активировать следующее окно)"},{"keys":["Cmd","Shift","`"],"cat":"apps","scope":"system","en":"Activate the previous open window in the front app","ru":"Активировать предыдущее открытое окно активного приложения"},{"keys":["Cmd",","],"cat":"apps","scope":"app","en":"Open settings (preferences) for the front app","ru":"Открыть окно настроек активного приложения"},{"keys":["Cmd","Ctrl","Q"],"cat":"power","scope":"system","en":"Lock your screen","ru":"Заблокировать экран"},{"keys":["Cmd","Shift","Q"],"cat":"power","scope":"system","en":"Log out of your macOS user account (asks to confirm)","ru":"Выйти из учётной записи пользователя macOS (с подтверждением)"},{"keys":["Cmd","Shift","Opt","Q"],"cat":"power","scope":"system","en":"Log out immediately without confirming","ru":"Немедленно выйти из учётной записи без подтверждения"},{"keys":["Cmd","Shift","3"],"cat":"screenshots","scope":"system","en":"Capture the entire screen","ru":"Сделать снимок всего экрана"},{"keys":["Cmd","Shift","4"],"cat":"screenshots","scope":"system","en":"Capture a portion of the screen","ru":"Сделать снимок области экрана"},{"keys":["Cmd","Shift","5"],"cat":"screenshots","scope":"system","en":"Open the Screenshot app to take a screenshot or record the screen","ru":"Открыть «Снимок экрана» для создания снимка или записи экрана"},{"keys":["Cmd","Shift","Ctrl","3"],"cat":"screenshots","scope":"system","en":"Capture the entire screen to the Clipboard instead of the desktop","ru":"Сделать снимок всего экрана в буфер обмена, а не на рабочий стол"},{"keys":["Cmd","Shift","Ctrl","4"],"cat":"screenshots","scope":"system","en":"Capture a portion of the screen to the Clipboard","ru":"Сделать снимок области экрана в буфер обмена"},{"keys":["Esc"],"cat":"screenshots","scope":"system","en":"Cancel taking the screenshot (while selecting an area or window)","ru":"Отменить создание снимка (при выборе области или окна)"},{"keys":["Cmd","Shift","N"],"cat":"finder","scope":"finder","en":"Create a new folder","ru":"Создать новую папку"},{"keys":["Cmd","Ctrl","N"],"cat":"finder","scope":"finder","en":"Create a new folder that contains the currently selected items","ru":"Создать папку, содержащую выбранные элементы"},{"keys":["Cmd","D"],"cat":"finder","scope":"finder","en":"Duplicate the selected files","ru":"Создать дубликаты выделенных файлов"},{"keys":["Cmd","E"],"cat":"finder","scope":"finder","en":"Eject the selected disk or volume","ru":"Извлечь выбранный диск или том"},{"keys":["Cmd","F"],"cat":"finder","scope":"finder","en":"Start a Spotlight search in the Finder window","ru":"Запустить поиск Spotlight в окне Finder"},{"keys":["Cmd","I"],"cat":"finder","scope":"finder","en":"Show the Get Info window for a selected file","ru":"Показать окно свойств выделенного файла"},{"keys":["Cmd","R"],"cat":"finder","scope":"finder","en":"Show the original file for the selected alias","ru":"Показать первоначальный файл для выбранного псевдонима"},{"keys":["Cmd","R"],"cat":"basics","scope":"app","en":"Refresh or reload the page (in some apps, such as Calendar or Safari)","ru":"Обновить или перезагрузить страницу (напр., в «Календаре» или Safari)"},{"keys":["Cmd","Shift","C"],"cat":"finder","scope":"finder","en":"Open the Computer window","ru":"Открыть окно «Компьютер»"},{"keys":["Cmd","Shift","D"],"cat":"finder","scope":"finder","en":"Open the desktop folder","ru":"Открыть папку рабочего стола"},{"keys":["Cmd","Shift","F"],"cat":"finder","scope":"finder","en":"Open the Recents window with recently viewed or changed files","ru":"Открыть окно «Недавние» с недавно открытыми и изменёнными файлами"},{"keys":["Cmd","Shift","G"],"cat":"finder","scope":"finder","en":"Open a Go to Folder window","ru":"Открыть окно «Переход к папке»"},{"keys":["Cmd","Shift","H"],"cat":"finder","scope":"finder","en":"Open the Home folder of the current macOS user account","ru":"Открыть личную папку текущей учётной записи пользователя macOS"},{"keys":["Cmd","Shift","I"],"cat":"finder","scope":"finder","en":"Open iCloud Drive","ru":"Открыть iCloud Drive"},{"keys":["Cmd","Shift","K"],"cat":"finder","scope":"finder","en":"Open the Network window","ru":"Открыть окно «Сеть»"},{"keys":["Cmd","Opt","L"],"cat":"finder","scope":"finder","en":"Open the Downloads folder","ru":"Открыть папку «Загрузки»"},{"keys":["Cmd","Shift","O"],"cat":"finder","scope":"finder","en":"Open the Documents folder","ru":"Открыть папку «Документы»"},{"keys":["Cmd","Shift","P"],"cat":"finder","scope":"finder","en":"Show or hide the Preview pane in Finder windows","ru":"Показать или скрыть область предварительного просмотра в окнах Finder"},{"keys":["Cmd","Shift","R"],"cat":"finder","scope":"finder","en":"Open the AirDrop window","ru":"Открыть окно AirDrop"},{"keys":["Cmd","Shift","T"],"cat":"finder","scope":"finder","en":"Show or hide the tab bar in Finder windows","ru":"Показать или скрыть строку вкладок в окнах Finder"},{"keys":["Cmd","Shift","Ctrl","T"],"cat":"finder","scope":"finder","en":"Add the selected Finder item to the Dock","ru":"Добавить выбранный объект Finder на панель Dock"},{"keys":["Cmd","Shift","U"],"cat":"finder","scope":"finder","en":"Open the Utilities folder","ru":"Открыть папку «Утилиты»"},{"keys":["Cmd","Opt","D"],"cat":"desktop","scope":"system","en":"Show or hide the Dock","ru":"Показать или скрыть панель Dock"},{"keys":["Cmd","Ctrl","T"],"cat":"finder","scope":"finder","en":"Add the selected item to the sidebar","ru":"Добавить выбранный объект на боковую панель"},{"keys":["Cmd","Opt","P"],"cat":"finder","scope":"finder","en":"Hide or show the path bar in Finder windows","ru":"Скрыть или показать строку пути в окнах Finder"},{"keys":["Cmd","Opt","S"],"cat":"finder","scope":"finder","en":"Hide or show the Sidebar in Finder windows","ru":"Скрыть или показать боковое меню в окнах Finder"},{"keys":["Cmd","/"],"cat":"finder","scope":"finder","en":"Hide or show the status bar in Finder windows","ru":"Скрыть или показать строку состояния в окнах Finder"},{"keys":["Cmd","J"],"cat":"finder","scope":"finder","en":"Show View Options","ru":"Показать параметры вида"},{"keys":["Cmd","K"],"cat":"finder","scope":"finder","en":"Open the Connect to Server window","ru":"Открыть окно «Подключение к серверу»"},{"keys":["Cmd","Ctrl","A"],"cat":"finder","scope":"finder","en":"Make an alias of the selected item","ru":"Создать псевдоним для выбранного объекта"},{"keys":["Cmd","N"],"cat":"finder","scope":"finder","en":"Open a new Finder window","ru":"Открыть новое окно Finder"},{"keys":["Cmd","Opt","N"],"cat":"finder","scope":"finder","en":"Create a new Smart Folder","ru":"Создать новую смарт-папку"},{"keys":["Cmd","T"],"cat":"finder","scope":"finder","en":"Show or hide the tab bar when a single tab is open in the window","ru":"Показать или скрыть панель вкладок, когда в окне открыта одна вкладка"},{"keys":["Cmd","Opt","T"],"cat":"finder","scope":"finder","en":"Show or hide the toolbar when a single tab is open in the window","ru":"Показать или скрыть панель инструментов, когда в окне одна вкладка"},{"keys":["Cmd","Opt","V"],"cat":"finder","scope":"finder","en":"Move the files in the Clipboard from their original location to here","ru":"Переместить файлы из буфера обмена из исходного места в текущее"},{"keys":["Cmd","Y"],"cat":"finder","scope":"finder","en":"Use Quick Look to preview the selected files","ru":"Просмотреть выделенные файлы с помощью «Быстрого просмотра»"},{"keys":["Cmd","Opt","Y"],"cat":"finder","scope":"finder","en":"View a Quick Look slideshow of the selected files","ru":"Показать слайд-шоу «Быстрый просмотр» для выделенных файлов"},{"keys":["Cmd","1"],"cat":"finder","scope":"finder","en":"View the items in the Finder window as icons","ru":"Показать объекты в окне Finder в виде значков"},{"keys":["Cmd","2"],"cat":"finder","scope":"finder","en":"View the items in the Finder window as a list","ru":"Показать объекты в окне Finder в виде списка"},{"keys":["Cmd","3"],"cat":"finder","scope":"finder","en":"View the items in the Finder window in columns","ru":"Показать объекты в окне Finder в виде столбцов"},{"keys":["Cmd","4"],"cat":"finder","scope":"finder","en":"View the items in the Finder window in a gallery","ru":"Показать объекты в окне Finder в виде галереи"},{"keys":["Cmd","["],"cat":"finder","scope":"finder","en":"Go to the previous folder","ru":"Перейти к предыдущей папке"},{"keys":["Cmd","]"],"cat":"finder","scope":"finder","en":"Go to the next folder","ru":"Перейти к следующей папке"},{"keys":["Cmd","Up"],"cat":"finder","scope":"finder","en":"Open the folder that contains the current folder","ru":"Открыть папку, содержащую текущую папку"},{"keys":["Cmd","Ctrl","Up"],"cat":"finder","scope":"finder","en":"Open the folder that contains the current folder in a new window","ru":"Открыть в новом окне папку, содержащую текущую папку"},{"keys":["Cmd","Down"],"cat":"finder","scope":"finder","en":"Open the selected item","ru":"Открыть выделенный объект"},{"keys":["Right"],"cat":"finder","scope":"finder","en":"Open the selected folder (list view only)","ru":"Открыть выделенную папку (только при отображении списком)"},{"keys":["Left"],"cat":"finder","scope":"finder","en":"Close the selected folder (list view only)","ru":"Закрыть выделенную папку (только при отображении списком)"},{"keys":["Cmd","Delete"],"cat":"finder","scope":"finder","en":"Move the selected item to the Trash","ru":"Переместить выделенный объект в корзину"},{"keys":["Cmd","Shift","Delete"],"cat":"finder","scope":"finder","en":"Empty the Trash","ru":"Очистить корзину"},{"keys":["Cmd","Shift","Opt","Delete"],"cat":"finder","scope":"finder","en":"Empty the Trash without confirmation dialog","ru":"Очистить корзину без диалогового окна подтверждения"},{"keys":["Ctrl","Up"],"cat":"desktop","scope":"system","en":"Open Mission Control (press again to leave)","ru":"Открыть Mission Control (повторное нажатие — выход)"},{"keys":["Ctrl","Down"],"cat":"desktop","scope":"system","en":"Show all windows of the front app","ru":"Показать все окна активного приложения"},{"keys":["Ctrl","Left"],"cat":"desktop","scope":"system","en":"Move between spaces: go to the space on the left","ru":"Перемещение между пространствами: перейти в пространство слева"},{"keys":["Ctrl","Right"],"cat":"desktop","scope":"system","en":"Move between spaces: go to the space on the right","ru":"Перемещение между пространствами: перейти в пространство справа"},{"keys":["Ctrl","Space"],"cat":"apps","scope":"system","en":"Select the previous input source","ru":"Выбрать предыдущий источник ввода"},{"keys":["Opt","Ctrl","Space"],"cat":"apps","scope":"system","en":"Select the next input source","ru":"Выбрать следующий источник ввода"},{"keys":["Cmd","B"],"cat":"text-edit","scope":"app","en":"Boldface the selected text, or turn boldfacing on or off","ru":"Выделить текст полужирным или включить/выключить полужирный шрифт"},{"keys":["Cmd","I"],"cat":"text-edit","scope":"app","en":"Italicize the selected text, or turn italics on or off","ru":"Выделить текст курсивом или включить/выключить курсив"},{"keys":["Cmd","K"],"cat":"text-edit","scope":"app","en":"Add a web link","ru":"Добавить веб-ссылку"},{"keys":["Cmd","U"],"cat":"text-edit","scope":"app","en":"Underline the selected text, or turn underlining on or off","ru":"Подчеркнуть выбранный текст или включить/выключить подчёркивание"},{"keys":["Cmd","T"],"cat":"text-edit","scope":"app","en":"Show or hide the Fonts window","ru":"Показать или скрыть окно «Шрифты»"},{"keys":["Cmd","D"],"cat":"apps","scope":"app","en":"Select the Desktop folder in an Open or Save dialog","ru":"Выбрать папку «Рабочий стол» в окне открытия или сохранения файла"},{"keys":["Cmd","Ctrl","D"],"cat":"text-edit","scope":"app","en":"Show or hide the definition of the selected word","ru":"Показать или скрыть определение выделенного слова"},{"keys":["Cmd","Shift",";"],"cat":"text-edit","scope":"app","en":"Show the Spelling and Grammar window","ru":"Показать окно «Правописание и грамматика»"},{"keys":["Cmd",";"],"cat":"text-edit","scope":"app","en":"Find misspelled words in the document","ru":"Найти неправильно написанные слова в документе"},{"keys":["Opt","Delete"],"cat":"text-edit","scope":"app","en":"Delete the word to the left of the insertion point","ru":"Удалить слово слева от точки вставки"},{"keys":["Ctrl","H"],"cat":"text-edit","scope":"app","en":"Delete the character to the left of the insertion point (with Control)","ru":"Удалить символ слева от точки вставки (через Control)"},{"keys":["Ctrl","D"],"cat":"text-edit","scope":"app","en":"Delete the character to the right of the insertion point (with Control)","ru":"Удалить символ справа от точки вставки (через Control)"},{"keys":["Fn","Delete"],"cat":"text-edit","scope":"app","en":"Forward delete: delete the character to the right of the insertion point","ru":"Удаление вперёд: удалить символ справа от точки вставки"},{"keys":["Ctrl","K"],"cat":"text-edit","scope":"app","en":"Cut the selection or text to the end of the paragraph (app-only clipboard)","ru":"Вырезать выделенное или текст до конца абзаца (буфер только приложения)"},{"keys":["Ctrl","Y"],"cat":"text-edit","scope":"app","en":"Paste the text cut with Control-K into the same app","ru":"Вставить вырезанное через Control-K в то же приложение"},{"keys":["Fn","Up"],"cat":"text-move","scope":"app","en":"Page Up: scroll up one page","ru":"Page Up: прокрутить вверх на одну страницу"},{"keys":["Fn","Down"],"cat":"text-move","scope":"app","en":"Page Down: scroll down one page","ru":"Page Down: прокрутить вниз на одну страницу"},{"keys":["Fn","Left"],"cat":"text-move","scope":"app","en":"Home: scroll to the beginning of a document","ru":"Home: прокрутить к началу документа"},{"keys":["Fn","Right"],"cat":"text-move","scope":"app","en":"End: scroll to the end of a document","ru":"End: прокрутить к концу документа"},{"keys":["Cmd","Up"],"cat":"text-move","scope":"app","en":"Move the insertion point to the beginning of the document","ru":"Переместить точку вставки в начало документа"},{"keys":["Cmd","Down"],"cat":"text-move","scope":"app","en":"Move the insertion point to the end of the document","ru":"Переместить точку вставки в конец документа"},{"keys":["Cmd","Left"],"cat":"text-move","scope":"app","en":"Move the insertion point to the beginning of the current line","ru":"Переместить точку вставки в начало текущей строки"},{"keys":["Cmd","Right"],"cat":"text-move","scope":"app","en":"Move the insertion point to the end of the current line","ru":"Переместить точку вставки в конец текущей строки"},{"keys":["Opt","Left"],"cat":"text-move","scope":"app","en":"Move the insertion point to the beginning of the previous word","ru":"Переместить точку вставки в начало предыдущего слова"},{"keys":["Opt","Right"],"cat":"text-move","scope":"app","en":"Move the insertion point to the end of the next word","ru":"Переместить точку вставки в конец следующего слова"},{"keys":["Cmd","Shift","Up"],"cat":"text-select","scope":"app","en":"Select the text between the insertion point and the start of the document","ru":"Выделить текст между точкой вставки и началом документа"},{"keys":["Cmd","Shift","Down"],"cat":"text-select","scope":"app","en":"Select the text between the insertion point and the end of the document","ru":"Выделить текст между точкой вставки и концом документа"},{"keys":["Cmd","Shift","Left"],"cat":"text-select","scope":"app","en":"Select the text between the insertion point and the start of the line","ru":"Выделить текст между точкой вставки и началом текущей строки"},{"keys":["Cmd","Shift","Right"],"cat":"text-select","scope":"app","en":"Select the text between the insertion point and the end of the line","ru":"Выделить текст между точкой вставки и концом текущей строки"},{"keys":["Shift","Up"],"cat":"text-select","scope":"app","en":"Extend text selection to the same horizontal position on the line above","ru":"Расширить выделение до той же позиции по горизонтали строкой выше"},{"keys":["Shift","Down"],"cat":"text-select","scope":"app","en":"Extend text selection to the same horizontal position on the line below","ru":"Расширить выделение до той же позиции по горизонтали строкой ниже"},{"keys":["Shift","Left"],"cat":"text-select","scope":"app","en":"Extend text selection one character to the left","ru":"Расширить выделение текста на один символ влево"},{"keys":["Shift","Right"],"cat":"text-select","scope":"app","en":"Extend text selection one character to the right","ru":"Расширить выделение текста на один символ вправо"},{"keys":["Shift","Opt","Up"],"cat":"text-select","scope":"app","en":"Extend selection to the start of the current paragraph (repeat for more)","ru":"Расширить выделение до начала текущего абзаца (повтор — дальше)"},{"keys":["Shift","Opt","Down"],"cat":"text-select","scope":"app","en":"Extend selection to the end of the current paragraph (repeat for more)","ru":"Расширить выделение до конца текущего абзаца (повтор — дальше)"},{"keys":["Shift","Opt","Left"],"cat":"text-select","scope":"app","en":"Extend selection to the start of the current word (repeat for more)","ru":"Расширить выделение до начала текущего слова (повтор — дальше)"},{"keys":["Shift","Opt","Right"],"cat":"text-select","scope":"app","en":"Extend selection to the end of the current word (repeat for more)","ru":"Расширить выделение до конца текущего слова (повтор — дальше)"},{"keys":["Ctrl","A"],"cat":"text-move","scope":"app","en":"Move to the beginning of the line or paragraph (with Control)","ru":"Перейти в начало строки или абзаца (через Control)"},{"keys":["Ctrl","E"],"cat":"text-move","scope":"app","en":"Move to the end of a line or paragraph (with Control)","ru":"Перейти в конец строки или абзаца (через Control)"},{"keys":["Ctrl","F"],"cat":"text-move","scope":"app","en":"Move one character forward","ru":"Перейти на один символ вперёд"},{"keys":["Ctrl","B"],"cat":"text-move","scope":"app","en":"Move one character backward","ru":"Перейти на один символ назад"},{"keys":["Ctrl","L"],"cat":"text-move","scope":"app","en":"Center the cursor or selection in the visible area","ru":"Расположить курсор или выделение по центру видимой области"},{"keys":["Ctrl","P"],"cat":"text-move","scope":"app","en":"Move up one line","ru":"Перейти на одну строку вверх"},{"keys":["Ctrl","N"],"cat":"text-move","scope":"app","en":"Move down one line","ru":"Перейти на одну строку вниз"},{"keys":["Ctrl","O"],"cat":"text-edit","scope":"app","en":"Insert a new line after the insertion point","ru":"Вставить новую строку за точкой вставки"},{"keys":["Ctrl","T"],"cat":"text-edit","scope":"app","en":"Swap the characters behind and in front of the insertion point","ru":"Поменять местами символы перед точкой вставки и после неё"},{"keys":["Cmd","Shift","["],"cat":"text-edit","scope":"app","en":"Left align","ru":"Выровнять по левому краю"},{"keys":["Cmd","Shift","]"],"cat":"text-edit","scope":"app","en":"Right align","ru":"Выровнять по правому краю"},{"keys":["Cmd","Shift","\\"],"cat":"text-edit","scope":"app","en":"Center align","ru":"Выровнять по центру"},{"keys":["Cmd","Opt","F"],"cat":"apps","scope":"app","en":"Go to the search field","ru":"Перейти в поле поиска"},{"keys":["Cmd","Opt","T"],"cat":"apps","scope":"app","en":"Show or hide a toolbar in the app","ru":"Показать или скрыть панель инструментов в приложении"},{"keys":["Cmd","Opt","C"],"cat":"text-edit","scope":"app","en":"Copy Style: copy the formatting of the selected item to the Clipboard","ru":"Скопировать стиль: параметры форматирования объекта — в буфер обмена"},{"keys":["Cmd","Opt","V"],"cat":"text-edit","scope":"app","en":"Paste Style: apply the copied style to the selected item","ru":"Вставить стиль: применить скопированный стиль к выбранному объекту"},{"keys":["Cmd","Shift","Opt","V"],"cat":"text-edit","scope":"app","en":"Paste and Match Style: paste using the style of the surrounding content","ru":"Вставить и согласовать стиль: вставить в стиле окружающего текста"},{"keys":["Cmd","Opt","I"],"cat":"apps","scope":"app","en":"Show or hide the inspector window","ru":"Показать или скрыть окно «Инспектор»"},{"keys":["Cmd","Shift","P"],"cat":"basics","scope":"app","en":"Page setup: show a window for selecting document settings","ru":"Параметры страницы: показать окно выбора настроек документа"},{"keys":["Cmd","Shift","S"],"cat":"basics","scope":"app","en":"Show the Save As dialog, or duplicate the current document","ru":"Показать окно «Сохранить как» или дублировать текущий документ"},{"keys":["Cmd","Shift","-"],"cat":"text-edit","scope":"app","en":"Decrease the size of the selected item","ru":"Уменьшить размер выделенного объекта"},{"keys":["Cmd","Shift","="],"cat":"text-edit","scope":"app","en":"Increase the size of the selected item","ru":"Увеличить размер выделенного объекта"},{"keys":["Cmd","Shift","/"],"cat":"apps","scope":"app","en":"Open the Help menu","ru":"Открыть меню «Справка»"},{"keys":["Tab"],"cat":"apps","scope":"app","en":"Move keyboard focus to the next control","ru":"Перейти к следующему элементу управления"},{"keys":["Shift","Tab"],"cat":"apps","scope":"app","en":"Move keyboard focus to the previous control","ru":"Перейти к предыдущему элементу управления"},{"keys":["Ctrl","Tab"],"cat":"apps","scope":"app","en":"Move to the next control when a text field is selected","ru":"Перейти к следующему элементу управления при выбранном текстовом поле"},{"keys":["Shift","Ctrl","Tab"],"cat":"apps","scope":"app","en":"Move to the previous grouping of controls","ru":"Перейти к предыдущей группе элементов управления"}]/*@*/;
+const CORPUS=/*@CORPUS*/{"words":["a","as","ask","asks","sad","dad","lad","lads","fad","fads","all","fall","falls","flask","flasks","salad","salads","alfalfa","lass","add","adds","alas","ad","ads","flak","flaks","ska","dal","had","has","gas","flash","hall","halls","hash","shall","shag","gag","gags","dash","hag","lag","lags","glad","gall","galls","gash","shad","slag","sag","flag","flags","gals","gad","sash","lash","glass","ah","ha","hags","dahl","he","she","see","sees","seed","seeds","feed","feeds","fell","held","keel","kid","kids","hide","hides","side","sides","slide","slides","ideal","life","file","files","fish","dish","sail","sails","said","field","fields","leak","leaks","like","likes","lies","hike","hikes","if","is","i","lid","lids","lie","die","dies","hid","aid","aids","ails","safe","sake","shake","shakes","glide","guide","hill","hills","silk","skill","skills","skid","sled","sleds","shelf","self","elf","else","fee","fees","led","lead","leads","deal","deals","dealt","idea","ideas","gel","jedi","flies","flake","flakes","lakes","lake","leg","legs","hell","heal","heals","hale","sleigh","ale","ales","egg","eggs","jig","jelly","seal","seals","sell","sells","selfie","use","uses","user","users","rule","rules","ruler","sure","ride","rides","rise","red","rid","hurl","surf","lure","sulk","furs","usual","rug","rugs","hug","hugs","jug","jugs","fuel","fuss","rush","dusk","husk","sugar","grudge","guard","guards","hire","here","her","hers","herd","sir","reside","rage","rare","rear","read","reads","real","dread","dress","drug","drugs","fire","fires","free","fur","gruff","hurdle","ladder","ruled","lurk","surge","urge","urges","usher","slur","dirt","rails","raid","raids","ear","ears","era","riders","the","they","there","that","this","these","yes","yet","try","tray","trays","style","styles","study","truth","thirty","street","strike","little","rather","it","its","at","tea","tie","ties","tide","tidy","tile","tiles","tilt","tilts","test","tests","tress","rust","rut","state","states","stay","stays","sat","set","sets","sit","site","sites","stir","stares","start","starts","great","treat","trade","trades","yard","yards","year","years","yea","yeah","ray","rays","say","says","stray","dry","dye","eye","eyes","easy","easily","gray","grey","tight","eight","eighth","fight","light","lights","right","sight","tired","ugly","truly","duty","daily","hardly","early","tasty","after","air","already","area","art","dark","day","dead","dear","desk","earth","east","eat","edge","either","fair","far","fast","father","fear","feel","feet","figure","first","fly","fruit","full","get","girl","grass","guess","hair","half","hard","hat","head","hear","heart","heat","high","his","hit","huge","hurry","just","key","kill","lady","large","last","late","laugh","lay","least","left","less","let","letter","lift","list","raise","ready","rest","salt","sea","seat","share","shirt","sister","sky","star","still","straight","take","talk","tall","tell","their","third","three","tree","true","us","yesterday","age","agree","deer","desert","dust","fail","fault","fill","flat","fresh","gift","guest","heel","hurt","jar","judge","kiss","leaf","rude","shade","tail","thief","gaze","our","sauce","them","then","those","night","type","types","about","above","across","again","against","ago","along","also","always","among","an","and","animal","another","answer","any","anyone","appear","apple","arm","army","around","away","baby","back","bad","bag","ball","bank","bar","base","be","beach","bear","beat","beautiful","because","become","bed","been","before","begin","behind","believe","bell","below","best","better","between","big","bird","bit","black","blood","blue","board","boat","body","book","born","both","bottom","box","boy","break","bring","brother","brown","build","burn","busy","but","buy","by","call","came","camp","can","car","card","care","carry","case","cat","catch","cause","center","century","certain","chair","chance","change","check","child","children","choose","church","circle","city","class","clean","clear","close","cloud","coat","cold","color","come","common","company","complete","cook","cool","corner","correct","cost","could","count","country","course","cover","cross","crowd","cry","cup","cut","dance","decide","deep","describe","different","dinner","direct","do","doctor","dog","dollar","done","door","down","draw","dream","drink","drive","drop","during","each","end","enjoy","enough","enter","even","evening","ever","every","exact","example","face","fact","family","farm","few","final","find","fine","finger","finish","five","floor","flower","follow","food","foot","for","force","forest","forget","form","forward","four","friend","from","front","fun","game","garden","gave","give","go","gold","gone","good","got","green","ground","group","grow","gun","hand","happen","happy","have","heavy","help","him","history","hold","hole","home","hope","horse","hot","hour","house","how","human","hundred","hunt","husband","ice","important","in","inch","inside","into","iron","island","job","join","jump","keep","kind","king","kitchen","knee","knew","know","land","language","law","learn","leave","line","lion","listen","live","long","look","lose","lot","loud","love","low","machine","made","main","make","man","many","map","mark","market","matter","may","maybe","me","mean","meet","member","men","middle","might","mile","milk","million","mind","minute","miss","modern","moment","money","month","moon","more","morning","most","mother","mountain","mouth","move","much","music","must","my","name","nation","near","neck","need","never","new","news","next","nice","nine","no","noise","none","noon","nor","north","nose","not","note","nothing","notice","now","number","object","ocean","of","off","offer","office","often","oil","old","on","once","one","only","open","or","order","other","out","over","own","page","pain","pair","paper","parent","park","part","party","pass","past","pay","peace","people","perhaps","person","pick","picture","piece","place","plain","plan","plant","play","please","point","pool","poor","possible","pound","power","press","pretty","price","prince","problem","produce","public","pull","push","put","queen","question","quick","quiet","quite","race","rain","ran","reach","reason","receive","record","remember","rich","ring","river","road","rock","room","round","row","run","same","sand","save","saw","school","science","season","second","seem","send","sense","sent","serve","seven","several","shape","sharp","ship","shoe","shop","short","shot","should","shoulder","show","sign","silver","simple","since","sing","six","size","skin","sleep","slow","small","smell","smile","snow","so","soft","soil","some","son","song","soon","sound","south","space","speak","special","speed","spell","spend","spring","square","stand","station","step"],"sentences":["Please bring a jacket, because it gets cold at night.","He reads the newspaper every morning with his coffee.","Did you remember to lock the back door before bed?","What a lovely surprise to see you here today!","The train was late, so we waited on the platform.","My brother plays guitar in a small band downtown.","Don't forget: the meeting starts at the top of the hour.","A long walk by the river always clears my head.","They built a tall fence around the old garden.","It's easy to say you're sorry, but hard to mean it.","The soup needs a little more salt and some pepper.","Can you help me carry these heavy boxes upstairs?","Our teacher gave us a fun project about the ocean.","The baby laughed when the dog jumped over the ball.","I think the best ideas come when you're not trying.","She wore a bright red scarf and a warm wool hat.","The store closes early on Sundays, so plan ahead.","Fresh bread smells wonderful in the morning.","We drove through the hills and stopped for a picnic.","There's nothing better than a hot shower after a run.","You shouldn't wait until the last minute to study.","The old clock in the hall chimes every hour.","Her sister is a nurse at the big hospital in town.","Let's meet at the corner cafe; they have great tea.","The kids built a snowman and gave it a carrot nose.","Open the window, please; the room feels very stuffy.","He finished the book in two days and wanted more.","It was a quiet street with tall trees on both sides.","Slow down, or you'll miss the turn for the highway.","My phone battery died, so I couldn't text you back.","The farmer rises early to feed the cows and sheep.","We planted tomatoes, beans, and herbs in the garden.","If you're hungry, there's some pasta in the fridge.","The movie was long, but the ending was worth it.","She practices the piano for an hour before dinner.","A good night's sleep makes everything seem easier.","Why is the sky blue during the day and dark at night?","The library has a quiet room for reading and study.","They hiked up the mountain to watch the sunrise.","Be careful with that knife; it's very sharp.","He's saving money for a trip to see his grandparents.","The waiter brought us water, bread, and a small salad.","Our neighbors are friendly, and they love gardening.","Turn left at the bakery, then go straight ahead.","I like my coffee strong, with just a bit of milk.","The wind blew the leaves across the empty yard.","Practice makes perfect; keep going, and don't give up.","The shop sells old books, maps, and wooden toys.","She smiled, waved goodbye, and walked into the station.","We should clean the garage this weekend, shouldn't we?","The river was calm, and the boat drifted slowly.","Tea with honey helps when your throat feels sore.","The students listened as the guest told her story.","Their house is at the end of a long, winding road.","Is it too late to change my order to the chicken?","The lights went out, and the whole town went quiet.","I can't believe how fast this year has gone by!","A small bird landed on the fence and sang a song.","Please keep your voice down; the baby is sleeping.","The chef added garlic, onions, and a splash of lemon.","Everyone cheered when the team scored the last goal.","You'll find the spare towels in the closet upstairs.","My grandfather tells the best stories about the sea.","It's a short trip, so we'll take the bus instead.","Take your time; there's no rush to finish this.","The mayor spoke about the new park and the bike lanes.","Sometimes the simplest plan is also the best one.","She forgot her umbrella and got soaked on the way home.","Can we eat outside tonight, or is it too windy?","The painter mixed blue and yellow to make green.","He wrote his name in the sand, and the waves took it.","Mix the flour, eggs, and milk until the batter is smooth.","That's the funniest thing I've heard all week!","The bus driver greeted every passenger with a smile.","Well-fed cats are usually calm and happy at home.","Our flight leaves early, so we need to pack tonight.","Bring a pen; you'll have to sign a few forms.","After the storm, the air felt clean and fresh.","He said \"maybe later\" and then went back to sleep.","The sign read \"wet paint\", so we kept our hands off."],"numbers":["The meeting starts at 9:30 a.m. sharp","Call me at 555-0142 after 6:15 p.m.","Order #70281 shipped on 03/14/2025","Total: $48.95 plus $6.20 shipping","Room 1207 is on the 12th floor","It is 27 degrees outside, or 80.6 F","Version 3.8.1 fixes 14 bugs","Add 250 g of flour and 2 eggs","The store is at 4096 Maple Street","Save 15% on all items until June 30","Flight 782 lands at 11:45 p.m.","Mix 1.5 cups of sugar with 3 cups of milk","The race is 10 km, about 6.2 miles","She was born on May 9, 1987","Page 365 of 1,024 pages read","Pay $1,250 by the 1st of each month","Gate B23 opens at 7:05 a.m.","Chapter 18 starts on page 204","Use port 8080 on localhost 127.0.0.1","The room measures 3.6 m by 4.8 m","Download 56 MB in about 40 seconds","Seats 19 and 20 are in row 5","Battery at 93%, about 2 hours left","Meet at 1600 Pine Avenue, Suite 5","Take 2 tablets every 8 hours","Temperature dropped to -4 degrees at 2:00 a.m.","The bill came to $92.17 with tip","Update to build 5.0.6 before Friday","Route 66 is about 2,448 miles long","Dial 911 in an emergency","The score was 101 to 98","Reserve table 7 for 6 people at 8:30","Open Mon-Fri, 8 a.m. to 5 p.m.","Only 3 of 4 tests passed, or 75%","Invoice 2024-0391 is due 12/01/2025","He ran 5 laps in 7 minutes 45 seconds","Batch 0019 holds 300 units","Tickets cost $35 each, or 2 for $60","Zip code 90210 is in the 310 area","Bus 42 comes every 12 minutes","The year 1999 was 26 years ago","Mix 0.75 L of water with 25 ml of juice","Box 6 weighs 18.4 kg","Her ID is 4471-8820-39","Buy 3, get 1 free; save $7.50","Wi-Fi speed: 940 Mbps down, 35 up","Exit 17 is 8 miles ahead","Sunrise at 6:42, sunset at 5:19","Set the alarm for 4:50 a.m.","Lot 38 sold for $310,000 in 2019"],"code":["ls -la | grep \".js\" > files.txt","cd ~/projects && npm install","echo \"Hello, $USER!\" >> notes.txt","git commit -m \"fix: update header\"","git checkout -b feature/login-form","git push origin main --force-with-lease","git log --oneline | head -n 10","git diff HEAD~1 -- src/app.js","for f in *.txt; do wc -l \"$f\"; done","export PATH=\"$HOME/bin:$PATH\"","find . -name '*.py' -exec rm {} \\;","chmod +x script.sh && ./script.sh","const sum = (a, b) => a + b;","let items = [1, 2, 3].map(x => x * 2);","if (count !== 0 && !done) { retry(); }","for (let i = 0; i < n; i++) { total += i; }","const { name, age } = user ?? {};","console.log(`Total: ${price * qty}`);","document.querySelector(\"#main > .item\");","fetch(url).then(r => r.json()).catch(console.error);","def add(x, y): return x + y","for i in range(10): print(i ** 2)","data = {\"a\": 1, \"b\": [2, 3]}","if x % 2 == 0 and y is not None:","import numpy as np","squares = [n * n for n in range(5)]","with open(\"log.txt\", \"r\") as f:","{\"id\": 42, \"tags\": [\"a\", \"b\"], \"ok\": true}","{\"name\": \"app\", \"version\": \"1.2.0\"}","body { margin: 0; padding: 0; }",".btn:hover { color: #ff0000; }","a > b ~ c + d { display: none; }",".box { width: calc(100% - 20px); }","^[a-z0-9_]+@[a-z]+\\.com$","phone = /\\d{3}-\\d{4}/;","(\\w+)\\s*=\\s*\"([^\"]*)\"","^\\s*#.*$ # skip comment lines","<div class=\"card\"></div>","<a href=\"/home\">Home</a>","SELECT * FROM users WHERE id = 5;","grep -rn \"TODO\" src/ | wc -l","curl -s https://example.com | jq '.items[]'","ssh user@host \"ls ~/logs\"","sudo apt update && sudo apt upgrade -y","python3 -m venv .venv && source .venv/bin/activate","const ok = a || b ? c : d;","x = y ^ z & ~mask;","#include <stdio.h>","int main(void) { return 0; }","echo $((5 + 3 * 2))","text.replace(/\\s+/g, \" \").trim();","print(f\"{name!r} scored {score:.1f}%\")","awk '{ print $1 }' data.csv | sort -u","@media (max-width: 600px) { .nav { display: none; } }","echo \"Built at `date`\"","const s = `Hi ${name}`;","@app.route(\"/\")","my_dir=`pwd`; echo $my_dir","my_var = os.environ.get(\"HOME_DIR\")","def get_user_name(): return self._name"]}/*@*/;
+</script>
+
+<script id="engine">
+/* ---------- US keyboard model ---------- */
+const KB=[
+ [['Escape','esc',null,1.3],['',null,null,13.3]],
+ [['Backquote','`','~'],['Digit1','1','!'],['Digit2','2','@'],['Digit3','3','#'],['Digit4','4','$'],['Digit5','5','%'],['Digit6','6','^'],['Digit7','7','&'],['Digit8','8','*'],['Digit9','9','('],['Digit0','0',')'],['Minus','-','_'],['Equal','=','+'],['Backspace','⌫',null,1.6]],
+ [['Tab','⇥',null,1.6],['KeyQ','q'],['KeyW','w'],['KeyE','e'],['KeyR','r'],['KeyT','t'],['KeyY','y'],['KeyU','u'],['KeyI','i'],['KeyO','o'],['KeyP','p'],['BracketLeft','[','{'],['BracketRight',']','}'],['Backslash','\\','|']],
+ [['CapsLock','⇪',null,1.8],['KeyA','a'],['KeyS','s'],['KeyD','d'],['KeyF','f'],['KeyG','g'],['KeyH','h'],['KeyJ','j'],['KeyK','k'],['KeyL','l'],['Semicolon',';',':'],['Quote',"'",'"'],['Enter','↩',null,1.8]],
+ [['ShiftLeft','⇧',null,2.3],['KeyZ','z'],['KeyX','x'],['KeyC','c'],['KeyV','v'],['KeyB','b'],['KeyN','n'],['KeyM','m'],['Comma',',','<'],['Period','.','>'],['Slash','/','?'],['ShiftRight','⇧',null,2.3]],
+ [['Fn','fn'],['ControlLeft','⌃'],['AltLeft','⌥'],['MetaLeft','⌘',null,1.3],['Space','',null,4],['MetaRight','⌘',null,1.3],['AltRight','⌥'],['ArrowLeft','←'],['ArrowUp','↑'],['ArrowDown','↓'],['ArrowRight','→']],
+];
+const FINGER={};
+const fset=(f,codes)=>codes.split(' ').forEach(c=>FINGER[c]=f);
+fset('Lp','Backquote Digit1 KeyQ KeyA KeyZ Tab CapsLock ShiftLeft Escape');
+fset('Lr','Digit2 KeyW KeyS KeyX');fset('Lm','Digit3 KeyE KeyD KeyC');fset('Li','Digit4 Digit5 KeyR KeyT KeyF KeyG KeyV KeyB');
+fset('Ri','Digit6 Digit7 KeyY KeyU KeyH KeyJ KeyN KeyM');fset('Rm','Digit8 KeyI KeyK Comma');fset('Rr','Digit9 KeyO KeyL Period');
+fset('Rp','Digit0 Minus Equal KeyP BracketLeft BracketRight Backslash Semicolon Quote Slash Enter ShiftRight Backspace');
+fset('T','Space MetaLeft MetaRight AltLeft AltRight');
+const CHARMAP={' ':{code:'Space',shift:false},'\n':{code:'Enter',shift:false}};
+KB.flat().forEach(([code,base,sh])=>{
+  if(!code||!base||base.length!==1||/[^\x21-\x7e]/.test(base))return;
+  CHARMAP[base]={code,shift:false};
+  if(/[a-z]/.test(base))CHARMAP[base.toUpperCase()]={code,shift:true};
+  else if(sh)CHARMAP[sh]={code,shift:true};
+});
+const shiftFor=code=>(FINGER[code]||'R')[0]==='L'?'ShiftRight':'ShiftLeft';
+
+/* ---------- typing lessons ---------- */
+const LESSONS=[
+ {id:'k1',g:0,k:'fjdk'},{id:'k2',g:0,k:'asl;'},{id:'k3',g:0,k:'gh'},{id:'k4',g:0,k:'ei'},{id:'k5',g:0,k:'ru'},{id:'k6',g:0,k:'ty'},
+ {id:'k7',g:0,k:'op'},{id:'k8',g:0,k:'wq'},{id:'k9',g:0,k:'nm'},{id:'k10',g:0,k:'vb'},{id:'k11',g:0,k:'cxz'},{id:'k12',g:0,k:',./'},
+ {id:'caps',g:1},{id:'punct',g:1},{id:'digits',g:1},{id:'sym1',g:1},{id:'sym2',g:1},
+ {id:'words',g:2},{id:'sent',g:2},{id:'nums',g:2},{id:'code',g:2},{id:'weak',g:2},
+];
+const LEN=140;
+const rnd=a=>a[Math.random()*a.length|0];
+const many=(n,f)=>{const o=[];let last;for(let i=0;i<n*4&&o.length<n;i++){const x=f();if(x&&x!==last){o.push(x);last=x}}return o};
+const SAFE_WORDS=['as','ask','sad','dad','lad','fall','all','add','flask','salad','the','and','for','you','that','with','have','this','from','they','time','make','like','just','know','take','good','work','first','after','back','think','over','also','people','because','through','little','great','where','right','should','around','small','place','number','again','world','still','every','found','under','never','house','point','water','always','between','letter','answer','question','quick','zero','exact','jump','very','move','black','voice','give','live','above','box','next','size','lazy'];
+function wordPool(){return CORPUS.words&&CORPUS.words.length>50?CORPUS.words:SAFE_WORDS}
+function genKeys(i){
+  const neu=[...LESSONS[i].k],known=new Set(LESSONS.slice(0,i+1).flatMap(l=>[...(l.k||'')]));
+  const letters=[...known].filter(c=>/[a-z]/.test(c)),neuL=neu.filter(c=>/[a-z]/.test(c)),neuP=neu.filter(c=>!/[a-z]/.test(c));
+  const ws=wordPool().filter(w=>[...w].every(c=>known.has(c))),wsNew=ws.filter(w=>neuL.some(c=>w.includes(c)));
+  const pseudo=()=>{let n=2+(Math.random()*3|0),s='';for(let j=0;j<n;j++)s+=neuL.length&&Math.random()<.55?rnd(neuL):rnd(letters);return s};
+  const out=neuL.map(c=>c+c+c);
+  if(neuL.length>1)out.push(neuL.join(''),neuL.slice().reverse().join(''));
+  let len=out.join(' ').length,last='';
+  for(let guard=0;len<LEN&&guard<400;guard++){
+    const r=Math.random();let w=wsNew.length>=8&&r<.6?rnd(wsNew):ws.length>=15&&(r<.85||!neuL.length)?rnd(ws):pseudo();
+    if(neuP.length&&Math.random()<(neuL.length?.3:.6)){const p=rnd(neuP);w=p==='/'?w+'/'+(ws.length?rnd(ws):pseudo()):w+p}
+    if(w===last)continue;last=w;out.push(w);len+=w.length+1;
+  }
+  return out.join(' ');
+}
+const CONTR=["don't","it's","can't","I'm","we're","you'll","that's","isn't","they've","won't","she's","let's"];
+const num=()=>String(Math.random()*10**(1+(Math.random()*4|0))|0);
+const GEN={
+  caps:()=>many(22,()=>{const w=rnd(wordPool()),r=Math.random();return r<.6?w[0].toUpperCase()+w.slice(1):r<.75&&w.length<=4?w.toUpperCase():w}).join(' '),
+  punct:()=>many(22,()=>{const w=rnd(wordPool()),r=Math.random();
+    return r<.2?rnd(CONTR):r<.32?w+'?':r<.44?w+'!':r<.54?w+':':r<.64?w+';':r<.76?'"'+w+'"':r<.86?w+'-'+rnd(wordPool()):w+','}).join(' '),
+  digits:()=>many(20,()=>{const r=Math.random();return r<.4?num():r<.55?num()+'.'+(Math.random()*100|0):r<.7?rnd(wordPool())+' '+num():rnd(wordPool())}).join(' '),
+  sym1:()=>many(20,()=>{const w=rnd(wordPool()),v=rnd(wordPool()),r=Math.random()*10|0;
+    return [w+'!','#'+w,'$'+num(),num()+'%','('+w+')',w+'@'+v,w+' & '+v,num()+'*'+num(),w+'^2',w][r]}).join(' '),
+  sym2:()=>many(20,()=>{const w=rnd(wordPool()),v=rnd(wordPool()),r=Math.random()*12|0;
+    return [w+'-'+v,w+'='+num(),'['+num()+']','{'+w+'}',w+'_'+v,num()+'+'+num(),w+'|'+v,'~/'+w,'<'+w+'>','`'+w+'`',w+'\\'+v,w][r]}).join(' '),
+  words:()=>many(30,()=>rnd(wordPool())).join(' '),
+  sent:()=>CORPUS.sentences.length?many(3,()=>rnd(CORPUS.sentences)).join(' '):GEN.caps(),
+  nums:()=>CORPUS.numbers.length?many(4,()=>rnd(CORPUS.numbers)).join('\n'):GEN.digits(),
+  code:()=>CORPUS.code.length?many(4,()=>rnd(CORPUS.code)).join('\n'):GEN.sym2(),
+};
+function weakCodes(keys){
+  return Object.entries(keys||{}).filter(([c,s])=>s.h+s.m>=8&&s.m>0&&c!=='Space'&&c!=='Enter')
+    .sort((a,b)=>b[1].m/(b[1].h+b[1].m)-a[1].m/(a[1].h+a[1].m)).slice(0,5).map(x=>x[0]);
+}
+function genWeak(keys){
+  const codes=weakCodes(keys);if(!codes.length)return GEN.words();
+  const chars=Object.keys(CHARMAP).filter(ch=>codes.includes(CHARMAP[ch].code)&&ch!==' '&&ch!=='\n');
+  return many(26,()=>{const c=rnd(chars);
+    if(/[a-z]/.test(c)){const p=wordPool().filter(w=>w.includes(c));return p.length?rnd(p):c+c}
+    if(/[A-Z]/.test(c)){const p=wordPool().filter(w=>w[0]===c.toLowerCase());return p.length?c+rnd(p).slice(1):c}
+    if(/\d/.test(c))return c+num();
+    return rnd(wordPool())+c}).join(' ');
+}
+function buildText(i,keys){const l=LESSONS[i];return l.k?genKeys(i):l.id==='weak'?genWeak(keys):GEN[l.id]()}
+
+/* ---------- shortcuts ---------- */
+const CATS=['basics','text-move','text-select','text-edit','apps','desktop','screenshots','finder','power'];
+const MODS=['Fn','Ctrl','Opt','Shift','Cmd'];
+const FNMAP={Left:'Home',Right:'End',Up:'PageUp',Down:'PageDown',Delete:'FwdDelete'};
+function sig(keys){
+  let k=keys.slice();const m=k[k.length-1];
+  if(k.includes('Fn')&&FNMAP[m]){k=k.filter(x=>x!=='Fn');k[k.length-1]=FNMAP[m]}
+  return k.sort().join('+');
+}
+/* сочетания, которые браузер или система забирают раньше страницы: их вводят по одной клавише */
+const RESERVED=['Cmd+Q','Cmd+W','Cmd+T','Cmd+N','Cmd+H','Cmd+M','Cmd+Tab','Cmd+`','Cmd+Space','Cmd+,',
+ 'Cmd+Shift+N','Cmd+Shift+T','Cmd+Shift+W','Cmd+Shift+Q','Cmd+Shift+Tab','Cmd+Shift+`','Cmd+Opt+W','Cmd+Opt+H','Cmd+Opt+M','Cmd+Opt+Esc','Cmd+Opt+D',
+ 'Cmd+Opt+Space','Cmd+Ctrl+Space','Cmd+Ctrl+F','Cmd+Ctrl+Q','Ctrl+Left','Ctrl+Right','Ctrl+Up','Ctrl+Down','Ctrl+Space',
+ 'Cmd+Shift+3','Cmd+Shift+4','Cmd+Shift+5','Cmd+Shift+6','Ctrl+Tab','Ctrl+Shift+Tab','Cmd+Shift+/'].map(s=>sig(s.split('+')));
+SHORTCUTS.forEach(s=>{
+  s.sig=sig(s.keys);s.id=s.cat+':'+s.keys.join('+');
+  s.seq=!s.keys.includes('Fn')&&(s.scope==='system'||RESERVED.includes(s.sig));
+});
+</script>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- save ---------- */
+let save={lang:null,ty:{},keys:{},sc:{},hints:true,sound:true};
+try{Object.assign(save,JSON.parse(localStorage.getItem('keys-by-touch')||'{}'))}catch(e){}
+if(save.lang!=='ru'&&save.lang!=='en')save.lang=/^ru/i.test(navigator.language||'')?'ru':'en';
+const persist=()=>{try{localStorage.setItem('keys-by-touch',JSON.stringify(save))}catch(e){}};
+
+/* ---------- sound ---------- */
+let actx=null,noiseBuf=null;
+function au(){
+  if(!save.sound)return null;
+  try{if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();return actx}catch(e){return null}
+}
+function tone(f,dur,type,vol,when,f2){
+  const a=au();if(!a)return;
+  const t=a.currentTime+(when||0),o=a.createOscillator(),g=a.createGain();
+  o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dur);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+dur+.02);
+}
+function click(freq,vol){
+  const a=au();if(!a)return;
+  if(!noiseBuf){noiseBuf=a.createBuffer(1,a.sampleRate*.04|0,a.sampleRate);const d=noiseBuf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,3)}
+  const s=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();
+  s.buffer=noiseBuf;f.type='bandpass';f.frequency.value=freq*(.92+Math.random()*.16);f.Q.value=1.2;g.gain.value=vol;
+  s.connect(f);f.connect(g);g.connect(a.destination);s.start();
+}
+const SND={
+  key:()=>click(2600,.5),space:()=>click(1100,.6),
+  err:()=>tone(160,.18,'square',.1,0,85),
+  ok:()=>{tone(660,.09,'sine',.18);tone(990,.16,'sine',.16,.07)},
+  done:()=>[523,659,784,1047].forEach((f,i)=>tone(f,.25,'triangle',.15,.12+i*.09)),
+};
+const snd=n=>{try{SND[n]()}catch(e){}};
+
+/* ---------- text ---------- */
+const T={
+ ru:{title:'Клавиши вслепую',brand:'Клавиши <span>вслепую</span>',type:'Печать',sc:'Сочетания',ref:'Справочник',
+  focus:'Щёлкните здесь, чтобы нажатия клавиш попадали в тренажёр',
+  groups:['Буквы','Знаки и цифры','Практика'],lesson:'Урок',
+  names:{caps:'Заглавные через Shift',punct:'Пунктуация',digits:'Цифры',sym1:'Знаки над цифрами',sym2:'Скобки и операторы',words:'Частые слова',sent:'Предложения',nums:'Числа в тексте',code:'Код и команды',weak:'Слабые клавиши'},
+  hint:{keys:'Нужная клавиша подсвечена, цвет кромки показывает палец. Смотрите на экран, а не на руки. Ошибка не пропускается: дальше пустит только верная клавиша.',
+   caps:'Shift нажимается мизинцем другой руки: для буквы под левой рукой правый Shift, и наоборот.',
+   punct:'Кавычки, двоеточие и вопросительный знак живут под правым мизинцем.',
+   digits:'Цифры набираются теми же пальцами, что и буквы под ними. После цифры рука возвращается в основную позицию.',
+   sym1:'Знаки над цифрами: клавиша цифры плюс Shift противоположной руки.',
+   sym2:'Скобки, минус, равно и обратная черта набираются правым мизинцем.',
+   words:'Набор из частых слов. Здесь уже можно гнаться за скоростью.',
+   sent:'Обычный текст с заглавными буквами и пунктуацией.',
+   nums:'Фразы с числами. Каждая строка заканчивается клавишей Return.',
+   code:'Команды и строки кода со скобками и операторами. Каждая строка заканчивается клавишей Return.',
+   weak:'Упражнение собрано из клавиш, на которых вы ошибаетесь чаще всего.',weakNone:'Данных об ошибках пока мало, поэтому здесь обычные слова. Пройдите несколько уроков.'},
+  soundOn:'Звук: вкл',soundOff:'Звук: выкл',wpm:'слов/мин',acc:'точность',errs:'ошибок',left:'осталось',best:'рекорд',restart:'Заново ⎋',next:'Дальше ↩',
+  hintsOn:'Подсказка на клавиатуре: вкл',hintsOff:'Подсказка на клавиатуре: выкл',
+  layout:'Похоже, включена не английская раскладка. Переключите её на ABC или U.S.',
+  r3:'Чисто. Можно идти дальше.',r2:'Хорошо. Ещё заход добавит точности.',r1:'Много ошибок. Замедлитесь: сначала точность, скорость придёт сама.',
+  worst:'Чаще всего ошибались на',fingers:['мизинец','безымянный','средний','указательный','большой'],
+  cats:{basics:'Основное','text-move':'Текст: курсор','text-select':'Текст: выделение','text-edit':'Текст: правка',apps:'Окна и программы',desktop:'Рабочий стол',screenshots:'Снимки экрана',finder:'Finder',power:'Сон и выход'},
+  review:'Повторение всего',sections:'Разделы',session:'Занятие',
+  scIntro:'Выберите раздел слева. Новое сочетание сначала показывается с ответом, потом спрашивается по памяти.',
+  startCat:'Начать раздел ↩',newOne:'Новое. Нажмите, чтобы запомнить:',need:'Нужно',isThis:d=>` — это «${d}».`,wrong:' — не то.',
+  seq:'Это сочетание забирает себе система или браузер. Нажимайте его клавиши по очереди, по одной, не удерживая.',
+  sOver:'занятие окончено',sScore:(a,n)=>`${a} из ${n} с первой попытки`,sMissed:'Стоит повторить',sAgain:'Ещё занятие ↩',sAllGood:'Без единой ошибки.',
+  needSeen:'Повторять пока нечего. Сначала пройдите хотя бы один раздел.',
+  space:'пробел',filter:'Найти сочетание или действие',learned:'освоено',
+  notesH:'Как устроен тренажёр',notes:[
+   'Сочетания и формулировки взяты со страниц поддержки Apple: «Сочетания клавиш Mac» и «Снимок экрана на Mac».',
+   'Часть сочетаний страница перехватить не может: их забирает macOS или сам браузер. Такие сочетания вводятся по одной клавише. Если по привычке зажать ⌘ и нажать Q или W, браузер закроется. Прогресс при этом сохранится.',
+   'Клавишу fn браузер не видит. Сочетания fn со стрелками и fn-Delete распознаются по результату нажатия.',
+   'Точки справа показывают, насколько сочетание закреплено: верный ответ с первой попытки добавляет точку, ошибка сбрасывает.'],
+ },
+ en:{title:'Keys by Touch',brand:'Keys <span>by touch</span>',type:'Typing',sc:'Shortcuts',ref:'Reference',
+  focus:'Click here so your key presses reach the trainer',
+  groups:['Letters','Symbols and digits','Practice'],lesson:'Lesson',
+  names:{caps:'Capitals with Shift',punct:'Punctuation',digits:'Digits',sym1:'Symbols above the digits',sym2:'Brackets and operators',words:'Common words',sent:'Sentences',nums:'Numbers in text',code:'Code and commands',weak:'Weak keys'},
+  hint:{keys:'The next key is highlighted, and its edge colour shows the finger. Look at the screen, not at your hands. Mistakes are not skipped: only the right key moves you on.',
+   caps:'Press Shift with the little finger of the other hand: right Shift for a left-hand letter, and the other way round.',
+   punct:'Quotes, the colon and the question mark all sit under the right little finger.',
+   digits:'Digits use the same fingers as the letters below them. After a digit the hand returns to the home row.',
+   sym1:'Symbols above the digits: the digit key plus Shift on the opposite hand.',
+   sym2:'Brackets, minus, equals and the backslash are typed with the right little finger.',
+   words:'A run of common words. This is where you can start chasing speed.',
+   sent:'Ordinary text with capitals and punctuation.',
+   nums:'Phrases with numbers. Each line ends with the Return key.',
+   code:'Commands and lines of code with brackets and operators. Each line ends with the Return key.',
+   weak:'This drill is built from the keys you miss most often.',weakNone:'There is not enough error data yet, so these are ordinary words. Do a few lessons first.'},
+  soundOn:'Sound: on',soundOff:'Sound: off',wpm:'WPM',acc:'accuracy',errs:'errors',left:'left',best:'best',restart:'Restart ⎋',next:'Next ↩',
+  hintsOn:'Keyboard hint: on',hintsOff:'Keyboard hint: off',
+  layout:'A non-English layout seems to be on. Switch it to ABC or U.S.',
+  r3:'Clean. You can move on.',r2:'Good. One more run will add accuracy.',r1:'Many errors. Slow down: accuracy first, speed follows.',
+  worst:'Most errors on',fingers:['little','ring','middle','index','thumb'],
+  cats:{basics:'Basics','text-move':'Text: cursor','text-select':'Text: selection','text-edit':'Text: editing',apps:'Windows and apps',desktop:'Desktop',screenshots:'Screenshots',finder:'Finder',power:'Sleep and log out'},
+  review:'Review everything',sections:'Sections',session:'Session',
+  scIntro:'Pick a section on the left. A new shortcut is first shown with its answer, then asked from memory.',
+  startCat:'Start section ↩',newOne:'New. Press it to remember:',need:'Press',isThis:d=>` is “${d}”.`,wrong:' is not it.',
+  seq:'The system or the browser takes this shortcut for itself. Press its keys one at a time, without holding them.',
+  sOver:'session over',sScore:(a,n)=>`${a} of ${n} on the first try`,sMissed:'Worth repeating',sAgain:'Another session ↩',sAllGood:'Not a single miss.',
+  needSeen:'Nothing to review yet. Do at least one section first.',
+  space:'space',filter:'Find a shortcut or an action',learned:'learned',
+  notesH:'How the trainer works',notes:[
+   'Shortcuts and wording come from Apple Support pages: “Mac keyboard shortcuts” and “Take a screenshot on Mac”.',
+   'The page cannot intercept some shortcuts: macOS or the browser takes them first. Those are entered one key at a time. If you hold ⌘ and press Q or W out of habit, the browser will close. Your progress is kept.',
+   'The browser cannot see the fn key. Shortcuts with fn and the arrows, and fn-Delete, are recognised by what the key press produces.',
+   'The dots on the right show how firmly a shortcut is learned: a first-try answer adds a dot, a miss resets them.'],
+ }};
+let L=T[save.lang];
+
+/* ---------- keyboard widget ---------- */
+const FCLS={p:'fp',r:'fr',m:'fm',i:'fi',T:'ft'};
+function kbHtml(){
+  return `<div class="kb" aria-hidden="true">${KB.map(row=>`<div class="kr">${row.map(([code,base,sh,w])=>{
+    if(!code)return `<span class="k gap" style="--w:${w}"></span>`;
+    const f=FINGER[code],cls=f?FCLS[f==='T'?'T':f[1]]:'';
+    const lab=/^Key/.test(code)?base.toUpperCase():code==='Space'?'':esc(base);
+    return `<span class="k ${cls}" data-code="${code}" ${w?`style="--w:${w}"`:''}>${sh?`<small>${esc(sh)}</small>`:''}${lab}</span>`}).join('')}</div>`).join('')}</div>
+  <ul class="legend">${['p','r','m','i','T'].map((f,i)=>`<li><i style="--fc:var(--f-${['pinky','ring','mid','idx','thumb'][i]})"></i>${L.fingers[i]}</li>`).join('')}</ul>`;
+}
+function setKb(o){
+  document.querySelectorAll('.kb .k').forEach(el=>{const c=el.dataset.code;
+    el.classList.toggle('t',!!(o.t&&o.t.includes(c)));el.classList.toggle('on',!!(o.on&&o.on.includes(c)));el.classList.toggle('bad',!!(o.bad&&o.bad.includes(c)))});
+}
+
+/* ---------- chrome ---------- */
+let view='type';
+function setView(v){
+  view=v;L=T[save.lang];
+  document.documentElement.lang=save.lang;document.title=L.title;
+  $('#brand').innerHTML=L.brand;$('#focus-note').textContent=L.focus;$('#b-sound').textContent=save.sound?L.soundOn:L.soundOff;
+  document.querySelectorAll('.tabs button').forEach(b=>{b.textContent=L[b.dataset.view];b.setAttribute('aria-selected',b.dataset.view===v)});
+  document.querySelectorAll('#seg-lang button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lang===save.lang));
+  if(v==='type')drawType();else if(v==='sc')drawSc();else drawRef();
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>{setView(b.dataset.view);b.blur()}));
+document.querySelectorAll('#seg-lang button').forEach(b=>b.addEventListener('click',()=>{save.lang=b.dataset.lang;persist();setView(view);b.blur()}));
+$('#b-sound').addEventListener('click',e=>{save.sound=!save.sound;persist();e.currentTarget.textContent=save.sound?L.soundOn:L.soundOff;e.currentTarget.blur();snd('ok')});
+function focusNote(){$('#focus-note').hidden=document.hasFocus()}
+window.addEventListener('focus',focusNote);window.addEventListener('blur',focusNote);
+$('#focus-note').addEventListener('click',()=>{window.focus();focusNote()});
+window.addEventListener('keydown',e=>{
+  if(view==='ref')return;
+  if((view==='type'?typeKey(e):scKey(e)))e.preventDefault();
+});
+window.addEventListener('keyup',e=>{if(view==='sc')scUp(e)});
+
+/* ================= typing ================= */
+let ti=Math.max(0,LESSONS.findIndex(l=>!save.ty[l.id])),run,tmsg='',badCode=null,badTimer=0;
+const lname=l=>l.k?[...l.k.toUpperCase()].join(' '):L.names[l.id];
+function startLesson(i){
+  ti=i;run={text:[...buildText(i,save.keys)],pos:0,errs:new Set(),t0:0,t1:0,done:false,miss:{},wrong:false};tmsg='';badCode=null;
+}
+function typeKey(e){
+  if(e.metaKey||e.ctrlKey)return false;
+  if(e.key==='Escape'){startLesson(ti);drawType();return true}
+  if(run.done){if(e.key==='Enter'){startLesson(Math.min(ti+1,LESSONS.length-1));drawType()}return e.key==='Enter'||e.key===' '}
+  const k=e.key==='Enter'?'\n':e.key;
+  if(k.length!==1)return e.key==='Backspace';
+  const want=run.text[run.pos],wc=CHARMAP[want];tmsg='';
+  if(!run.t0)run.t0=performance.now();
+  if(k===want){
+    if(wc){const s=save.keys[wc.code]||(save.keys[wc.code]={h:0,m:0});s.h++}
+    run.pos++;run.wrong=false;snd(want===' '?'space':'key');
+    if(run.pos>=run.text.length)finish();
+  }else{
+    run.wrong=true;snd('err');
+    if(!run.errs.has(run.pos)){run.errs.add(run.pos);
+      if(wc){const s=save.keys[wc.code]||(save.keys[wc.code]={h:0,m:0});s.m++;run.miss[wc.code]=(run.miss[wc.code]||0)+1}}
+    if(/[^\x00-\x7f]/.test(k))tmsg=L.layout;
+    badCode=e.code;clearTimeout(badTimer);badTimer=setTimeout(()=>{badCode=null;if(view==='type')drawRun()},350);
+  }
+  drawRun();return true;
+}
+function calc(){
+  const n=run.pos,ms=(run.done?run.t1:performance.now())-run.t0,min=ms/60000;
+  return{wpm:run.t0&&ms>1500?Math.round(n/5/min):0,acc:n?Math.round(100*(n-[...run.errs].filter(p=>p<n||run.done).length)/n):100};
+}
+const starsFor=acc=>acc>=98?3:acc>=94?2:1;
+function finish(){
+  run.done=true;run.t1=performance.now();snd('done');const l=LESSONS[ti],r=calc(),s=starsFor(r.acc),b=save.ty[l.id]||{stars:0,wpm:0};
+  save.ty[l.id]={stars:Math.max(b.stars,s),wpm:Math.max(b.wpm,r.wpm)};persist();
+  drawType();
+}
+function drawType(){
+  if(!run)startLesson(ti);
+  const l=LESSONS[ti];
+  const nav=L.groups.map((g,gi)=>`<section><h3>${g}</h3><ul>`+LESSONS.map((x,i)=>x.g!==gi?'':
+    `<li><button data-i="${i}" aria-current="${i===ti}"><span class="${x.k?'lk':''}">${esc(lname(x))}</span><span class="st ${save.ty[x.id]?'':'none'}">${save.ty[x.id]?'★'.repeat(save.ty[x.id].stars):'·'}</span></button></li>`).join('')+`</ul></section>`).join('');
+  const hint=l.k?L.hint.keys:l.id==='weak'&&!weakCodes(save.keys).length?L.hint.weakNone:L.hint[l.id];
+  $('#view').innerHTML=`<div class="cols">
+    <nav class="nav">${nav}</nav>
+    <section class="stage">
+      <div><p class="eyebrow">${L.groups[l.g]} · ${L.lesson} ${ti+1}</p><h2>${esc(lname(l))}</h2><p class="task">${hint}</p></div>
+      <div class="sheet" id="sheet"></div>
+      <p class="msg" id="msg" role="status"></p>
+      <div class="hud" id="hud"></div>
+      <div id="win"></div>
+      ${kbHtml()}
+    </section></div>`;
+  document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>{startLesson(+b.dataset.i);drawType();b.blur()}));
+  const cur=$('.nav button[aria-current="true"]');if(cur&&window.innerWidth<=760)cur.scrollIntoView({block:'nearest',inline:'center'});
+  drawRun();
+}
+function drawRun(){
+  if(!$('#sheet'))return;
+  const l=LESSONS[ti],r=calc();
+  $('#sheet').innerHTML=run.text.map((c,i)=>{
+    const cls=i<run.pos?(run.errs.has(i)?'d e':'d'):i===run.pos&&!run.done?(run.wrong?'c x':'c'):'';
+    const ch=c==='\n'?'↩\n':esc(c);
+    return cls?`<span class="${cls}">${ch}</span>`:ch}).join('');
+  $('#msg').textContent=tmsg;
+  const b=save.ty[l.id];
+  $('#hud').innerHTML=`<span>${L.wpm} <strong>${r.wpm||'–'}</strong></span><span>${L.acc} <strong>${r.acc}%</strong></span><span>${L.left} <strong>${run.text.length-run.pos}</strong></span>${b&&b.wpm?`<span>${L.best} <strong>${b.wpm}</strong></span>`:''}
+    <span class="sp"><button class="btn" id="b-hints">${save.hints?L.hintsOn:L.hintsOff}</button><button class="btn" id="b-restart">${L.restart}</button></span>`;
+  $('#b-restart').onclick=()=>{startLesson(ti);drawType()};
+  $('#b-hints').onclick=()=>{save.hints=!save.hints;persist();drawRun()};
+  const want=CHARMAP[run.text[run.pos]],t=[];
+  if(save.hints&&want&&!run.done){t.push(want.code);if(want.shift)t.push(shiftFor(want.code))}
+  setKb({t,bad:badCode?[badCode]:[]});
+  if(run.done){
+    const s=starsFor(r.acc),worst=Object.entries(run.miss).sort((a,b)=>b[1]-a[1]).slice(0,4);
+    const lab=c=>{const k=KB.flat().find(x=>x[0]===c);return c==='Space'?L.space:k?(/^Key/.test(c)?k[1].toUpperCase():k[1]):c};
+    $('#win').innerHTML=`<div class="win"><div class="stars">${'★'.repeat(s)}<s>${'★'.repeat(3-s)}</s></div>
+      <div class="nums"><div><b>${r.wpm}</b><span>${L.wpm}</span></div><div><b>${r.acc}%</b><span>${L.acc}</span></div><div><b>${run.errs.size}</b><span>${L.errs}</span></div></div>
+      <p>${L['r'+s]}</p>
+      ${worst.length?`<p>${L.worst} ${worst.map(([c])=>`<span class="combo"><kbd>${esc(lab(c))}</kbd></span>`).join(' ')}</p>`:''}
+      <div><button class="btn pri" id="b-next">${L.next}</button></div></div>`;
+    $('#b-next').onclick=()=>{startLesson(Math.min(ti+1,LESSONS.length-1));drawType()};
+  }else $('#win').innerHTML='';
+}
+
+/* ================= shortcuts ================= */
+const GLYPH={Cmd:'⌘',Shift:'⇧',Opt:'⌥',Ctrl:'⌃',Fn:'fn',Left:'←',Right:'→',Up:'↑',Down:'↓',Tab:'⇥',Esc:'esc',Delete:'⌫',FwdDelete:'⌦',Return:'↩'};
+const UNFN={Home:'Left',End:'Right',PageUp:'Up',PageDown:'Down',FwdDelete:'Delete'};
+function comboHtml(keys){
+  let k=keys.slice();const last=k[k.length-1];
+  if(UNFN[last]&&!k.includes('Fn')){k[k.length-1]=UNFN[last];k.unshift('Fn')}
+  k.sort((a,b)=>(MODS.indexOf(a)<0?9:MODS.indexOf(a))-(MODS.indexOf(b)<0?9:MODS.indexOf(b)));
+  return `<span class="combo">${k.map(x=>`<kbd>${esc(x==='Space'?L.space:GLYPH[x]||x)}</kbd>`).join('')}</span>`;
+}
+const CODE={Cmd:'MetaLeft',Shift:'ShiftLeft',Opt:'AltLeft',Ctrl:'ControlLeft',Fn:'Fn',Left:'ArrowLeft',Right:'ArrowRight',Up:'ArrowUp',Down:'ArrowDown',
+  Space:'Space',Tab:'Tab',Esc:'Escape',Delete:'Backspace',Return:'Enter',Home:'ArrowLeft',End:'ArrowRight',PageUp:'ArrowUp',PageDown:'ArrowDown',FwdDelete:'Backspace'};
+const codesOf=keys=>keys.map(k=>CODE[k]||(/^[A-Z]$/.test(k)?'Key'+k:/^\d$/.test(k)?'Digit'+k:(CHARMAP[k]||{}).code)).filter(Boolean);
+const MODK={Meta:'Cmd',Shift:'Shift',Alt:'Opt',Control:'Ctrl'};
+function evKey(e){
+  const c=e.code;let m;
+  if(m=/^Key([A-Z])$/.exec(c))return m[1];
+  if(m=/^Digit(\d)$/.exec(c))return m[1];
+  return {ArrowLeft:'Left',ArrowRight:'Right',ArrowUp:'Up',ArrowDown:'Down',Space:'Space',Tab:'Tab',Escape:'Esc',Backspace:'Delete',Delete:'FwdDelete',Enter:'Return',
+    Comma:',',Period:'.',Slash:'/',Semicolon:';',Quote:"'",BracketLeft:'[',BracketRight:']',Backslash:'\\',Minus:'-',Equal:'=',Backquote:'`',
+    Home:'Home',End:'End',PageUp:'PageUp',PageDown:'PageDown'}[c]||null;
+}
+const evMods=e=>[e.ctrlKey&&'Ctrl',e.altKey&&'Opt',e.shiftKey&&'Shift',e.metaKey&&'Cmd'].filter(Boolean);
+const st=s=>save.sc[s.id]||(save.sc[s.id]={box:0,seen:false});
+const stR=s=>save.sc[s.id]||{box:0,seen:false};
+const sx=s=>save.lang==='en'?s.en:s.ru;
+const SESSION=10,REVIEW=15;
+let sc=null,scCat=CATS.find(c=>SHORTCUTS.some(s=>s.cat===c))||CATS[0],acc=new Set(),accTimer=0,held=[];
+
+function startCat(cat){
+  scCat=cat;
+  const items=SHORTCUTS.filter(s=>s.cat===cat).map((s,i)=>({s,i})).sort((a,b)=>(stR(a.s).box-stR(b.s).box)||(a.i-b.i)).slice(0,SESSION).map(x=>x.s);
+  beginSession(items.map(s=>({s,intro:!stR(s).seen})),cat);
+}
+function startReview(){
+  const pool=SHORTCUTS.filter(s=>stR(s).seen);
+  if(pool.length<1){sc={empty:true,cat:'review'};scCat='review';drawSc();return}
+  const pick=[],p=pool.slice();
+  while(pick.length<REVIEW&&p.length){
+    const w=p.map(s=>4-stR(s).box);let r=Math.random()*w.reduce((a,b)=>a+b,0),i=0;
+    for(;i<p.length-1;i++){r-=w[i];if(r<=0)break}
+    pick.push(p.splice(i,1)[0]);
+  }
+  scCat='review';beginSession(pick.map(s=>({s,intro:false})),'review');
+}
+function beginSession(queue,cat){
+  sc={cat,queue,cur:null,miss:false,fb:null,ok:0,total:queue.filter(q=>!q.intro).length,missed:[],n:0,done:false};
+  nextItem();
+}
+function nextItem(){
+  acc.clear();held=[];
+  if(!sc.queue.length){sc.done=true;sc.cur=null;snd('done');persist();drawSc();return}
+  sc.cur=sc.queue.shift();sc.miss=false;sc.fb=null;sc.n++;drawSc();
+}
+function judge(pressed){
+  const it=sc.cur,s=it.s,rec=st(s);
+  acc.clear();clearTimeout(accTimer);
+  if(sig(pressed)===s.sig){
+    snd('ok');
+    if(it.intro){rec.seen=true;sc.total++;sc.queue.splice(Math.min(3,sc.queue.length),0,{s,intro:false})}
+    else if(sc.miss){rec.box=0;sc.queue.splice(Math.min(3,sc.queue.length),0,{s,intro:false,retry:true})}
+    else if(it.retry){rec.box=Math.max(rec.box,1)}
+    else{rec.box=Math.min(3,rec.box+1);sc.ok++}
+    persist();nextItem();
+  }else{
+    if(!it.intro&&!sc.miss&&!it.retry)sc.missed.push(s);
+    snd('err');sc.miss=true;sc.fb={pressed,other:SHORTCUTS.find(x=>x.sig===sig(pressed)&&x.cat===s.cat)||SHORTCUTS.find(x=>x.sig===sig(pressed))};drawSc();
+  }
+}
+function scKey(e){
+  if(!sc||sc.done||sc.empty||!sc.cur){
+    if(e.key==='Enter'&&!e.metaKey){scCat==='review'?startReview():startCat(scCat);return true}
+    return false;
+  }
+  if(e.repeat)return true;
+  const s=sc.cur.s,mod=MODK[e.key],key=mod?null:evKey(e);
+  if(s.seq){
+    if(mod)acc.add(mod);else if(key){evMods(e).forEach(m=>acc.add(m));acc.add(key)}else return true;
+    clearTimeout(accTimer);accTimer=setTimeout(()=>{acc.clear();if(view==='sc')drawSc()},4000);
+    if(acc.size>=s.keys.length)judge([...acc]);else{snd('key');sc.fb=null;drawSc()}
+    return true;
+  }
+  if(mod){snd('key');held=evMods(e);if(!held.includes(mod))held.push(mod);paintKb();return true}
+  if(!key)return true;
+  judge([...evMods(e),key]);
+  return true;
+}
+function scUp(e){if(sc&&sc.cur&&!sc.cur.s.seq&&MODK[e.key]){held=evMods(e);paintKb()}}
+function paintKb(){
+  if(!sc||!sc.cur){setKb({});return}
+  const s=sc.cur.s,show=sc.cur.intro||sc.miss;
+  setKb({t:show?codesOf(s.keys):[],on:codesOf(s.seq?[...acc]:held)});
+}
+function catProg(c){const a=SHORTCUTS.filter(s=>s.cat===c);return [a.filter(s=>stR(s).box>=2).length,a.length]}
+function drawSc(){
+  const nav=`<section><h3>${L.session}</h3><ul><li><button data-cat="review" aria-current="${scCat==='review'}"><span>${L.review}</span></button></li></ul></section>
+    <section><h3>${L.sections}</h3><ul>${CATS.filter(c=>SHORTCUTS.some(s=>s.cat===c)).map(c=>{const [a,b]=catProg(c);
+      return `<li><button data-cat="${c}" aria-current="${scCat===c}"><span>${L.cats[c]}</span><span class="st ${a?'':'none'}">${a}/${b}</span></button></li>`}).join('')}</ul></section>`;
+  let h;
+  const title=scCat==='review'?L.review:L.cats[scCat];
+  if(!sc){
+    h=`<div class="q"><div class="n">${esc(title)}</div><div class="ask">${L.scIntro}</div></div><div><button class="btn pri" id="b-go">${L.startCat}</button></div>`;
+  }else if(sc.empty){
+    h=`<div class="q"><div class="n">${L.review}</div><div class="ask">${L.needSeen}</div></div>`;
+  }else if(sc.done){
+    h=`<div class="q"><div class="n">${esc(title)} · ${L.sOver}</div><div class="ask">${L.sScore(sc.ok,sc.total)}</div><div class="fb">${sc.missed.length?'':L.sAllGood}</div></div>
+      ${sc.missed.length?`<div><p class="eyebrow">${L.sMissed}</p><ul class="sum">${sc.missed.map(s=>`<li>${comboHtml(s.keys)}<span>${esc(sx(s))}</span></li>`).join('')}</ul></div>`:''}
+      <div><button class="btn pri" id="b-go">${L.sAgain}</button></div>`;
+  }else{
+    const it=sc.cur,s=it.s,f=sc.fb;
+    const fb=it.intro&&!f?`<div class="fb new">${L.newOne} ${comboHtml(s.keys)}</div>`
+      :f?`<div class="fb bad">${comboHtml(f.pressed)}${f.other?L.isThis(esc(sx(f.other))):L.wrong} ${L.need} ${comboHtml(s.keys)}</div>`
+      :`<div class="fb">${s.seq&&acc.size?comboHtml([...acc]):''}</div>`;
+    h=`<div class="q"><div class="n">${esc(L.cats[s.cat])} · ${sc.n} / ${sc.n+sc.queue.length}</div><div class="ask">${esc(sx(s))}</div>${fb}
+      ${s.seq?`<p class="seqn">${L.seq}</p>`:''}</div>`;
+  }
+  $('#view').innerHTML=`<div class="cols"><nav class="nav">${nav}</nav><section class="stage">${h}${kbHtml()}</section></div>`;
+  document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>{b.dataset.cat==='review'?startReview():startCat(b.dataset.cat);b.blur()}));
+  if($('#b-go'))$('#b-go').onclick=()=>scCat==='review'?startReview():startCat(scCat);
+  const cur=$('.nav button[aria-current="true"]');if(cur&&window.innerWidth<=760)cur.scrollIntoView({block:'nearest',inline:'center'});
+  paintKb();
+}
+
+/* ================= reference ================= */
+let refQ='';
+function refTables(){
+  const q=refQ.trim().toLowerCase();
+  const hit=s=>!q||s.ru.toLowerCase().includes(q)||s.en.toLowerCase().includes(q)||s.keys.join(' ').toLowerCase().includes(q);
+  return CATS.map(c=>{const rows=SHORTCUTS.filter(s=>s.cat===c&&hit(s));if(!rows.length)return '';
+    return `<section><h3>${L.cats[c]}</h3><div style="overflow-x:auto"><table>${rows.map(s=>{const b=stR(s).box;
+      return `<tr><td>${comboHtml(s.keys)}</td><td>${esc(sx(s))}</td><td class="box" title="${L.learned}">${'●'.repeat(b)}${'○'.repeat(3-b)}</td></tr>`}).join('')}</table></div></section>`}).join('');
+}
+function drawRef(){
+  $('#view').innerHTML=`<div class="ref"><input id="ref-q" type="search" placeholder="${L.filter}" aria-label="${L.filter}" value="${esc(refQ)}">
+    <div id="ref-t" class="ref">${refTables()}</div>
+    <section><h3>${L.notesH}</h3><ul class="note">${L.notes.map(n=>`<li>${n}</li>`).join('')}</ul></section></div>`;
+  $('#ref-q').addEventListener('input',e=>{refQ=e.target.value;$('#ref-t').innerHTML=refTables()});
+}
+
+setView('type');focusNote();
+})();
+</script>
+</body>
+</html>
